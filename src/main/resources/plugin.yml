@@ -1,0 +1,19 @@
+name: Statify
+version: 1.0
+main: dev.quantumbagel.statify.Statify
+api-version: '1.20'
+description: Statify - a Discord-integrated, leaderboard / quest based *game* or competition to have with your friends :D
+commands:
+  leaderboard:
+    description: test command
+    usage: /leaderboard <stat category>:<stat subcategory>
+    permission: main.*
+    aliases: lb
+  stat:
+    description: test command
+    usage: /stat
+    permission: main.*
+permissions:
+  main.*:
+    description: Everyone can use this plugin lol
+    default: true
