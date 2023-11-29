@@ -10,11 +10,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import static org.bukkit.Bukkit.getConsoleSender;
-//import static org.bukkit.Bukkit.getServer;
+import static org.bukkit.Bukkit.getServer;
 
 public class GetStatJson {
-    // static String stat_folder = getServer().getWorldContainer().getAbsolutePath() + "/world/stats";
-    static String stat_folder = "C:\\Users\\Julian Reder\\Documents\\spigot\\world\\stats";
+    static String stat_folder = getServer().getWorldContainer().getAbsolutePath() + "/world/stats";
+    // static String stat_folder = "C:\\Users\\Julian Reder\\Documents\\spigot\\world\\stats";
     public static void main(String[] args) {}
     public static HashMap<String, JsonObject> returnStatFiles() {
         HashMap<String, JsonObject> statFiles = new HashMap<>();

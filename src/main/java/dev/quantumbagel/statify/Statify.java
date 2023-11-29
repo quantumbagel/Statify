@@ -7,6 +7,7 @@ public class Statify extends JavaPlugin {
     public void onEnable() {
         this.getCommand("leaderboard").setExecutor(new LeaderboardCommand());
         this.getCommand("stat").setExecutor(new StatCommand());
+        this.getCommand("custom").setExecutor(new CustomCommand());
     }
 }
 

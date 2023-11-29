@@ -18,78 +18,65 @@ public class LeaderboardCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         if (args.length == 0) {
-            sender.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "Please provide a category!");
+            sender.sendMessage(GenerateErrorMessage.generateError("Please provide a category!"));
             return false;
         }
-        String category = args[0]; // /leaderboard only uses the first argument
         String playerUUID;
         try {
             playerUUID = ((Player) sender).getUniqueId().toString();
         } catch (ClassCastException ignored) {
             playerUUID = "";
         }
-        List<String> categories = Arrays.asList("custom", "killed", "mined", "broken", "used", "crafted", "picked_up", "dropped", "killed_by");
-        HashMap<String, JsonObject> stats = GetStatJson.returnStatFiles();
-        if (!category.contains(":")) {
-            if (categories.contains(category)) {
-                Map<String, String> uToU = UserCacheReader.getUUIDtoUsernameDict();
-                Map<String, String> uToUReal;
-                try {
-                    uToUReal = uToU.entrySet().stream().collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
-                } catch (IllegalStateException e){
-                    sender.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "There are two statfiles that claim to be the same username! Please discuss this with your admin!");
-                    sender.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "Error:" + e);
-                    return true;
-                }
-                String usernameToCheck;
-                if (!playerUUID.isEmpty()) {
-                    usernameToCheck = uToU.get(playerUUID);
-                } else {
-                    usernameToCheck = "";
-                }
-                if (args.length > 1) {
-                    usernameToCheck = args[1];
-                }
-                if (usernameToCheck.isEmpty()) {
-                    sender.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "Console user, please provide a username after the category to get information about that player.");
-                }
-                StoresForVerify ssv = VerifyUsername.verify(usernameToCheck);
-                boolean isValidUsername = ssv.getValid();
-                String legitUsername = ssv.getLegit();
-                if (isValidUsername) {
-                    sender.sendMessage(stats.get(uToUReal.get(legitUsername))
-                            .get("stats")
-                            .getAsJsonObject()
-                            .get("minecraft:" + category)
-                            .toString());
-                } else {
-                    sender.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "Please use a valid username - or no username to get your own information.");
-                }
-            } else {
-                sender.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "That's not a valid category! Try one of the following: custom, killed, mined, broken, used, crafted, picked_up, dropped, or killed_by.");
+//        List<String> categories = Arrays.asList("custom", "killed", "mined", "broken", "used", "crafted", "picked_up", "dropped", "killed_by");
+//        HashMap<String, JsonObject> stats = GetStatJson.returnStatFiles();
+        int topX = 10;
+        String instruction = "";
+        try {
+            topX = Integer.parseInt(args[0]);
+        } catch (NumberFormatException ignored) { instruction = String.join(" ", args); }
+        if (instruction.isEmpty() && (args[1].startsWith("-")
+                || args[1].startsWith("*")
+                || args[1].startsWith("/")
+                || args[1].startsWith("+"))) {
+            instruction = String.join(" ", args);
+
+        }
+        if (instruction.isEmpty()) {
+            String[] otherArgs = Arrays.copyOfRange(args, 1, args.length);
+            instruction = String.join(" ", otherArgs);
+        }
+        List<String> queries = QueryParser.obtainStatsFromInstruction(instruction).stream().distinct().toList();
+        boolean oskeh = true;
+        for (String s: queries) {
+            if (!s.contains(":")) {
+                oskeh = false;
+                break;
             }
+        }
+        if (!oskeh) {
+            sender.sendMessage(GenerateErrorMessage.generateError("There are no dynamic queries in this input :/"));
+            return true;
+        }
+        if (queries.isEmpty()) {
+            sender.sendMessage(GenerateErrorMessage.generateError("There are no valid queries in this input!"));
+        }
+        HashMap<String, List<Integer>> hash = QueryParser.calculateStatsToReplace(instruction);
+        HashMap<String, String> out = QueryParser.replaceCalculatedStats(hash, instruction);
+        HashMap<String, Double> toRank = new HashMap<>();
+        for (Map.Entry<String, String> item: out.entrySet()) {
+            toRank.put(item.getKey(), QueryParser.doTheMath(item.getValue()));
+        }
+        boolean isAscending = queries.size() == 1 && Objects.equals(queries.get(0).split(":", -1)[0], "killed_by");
+
+        LinkedHashMap<String, Double> ranking = GetRanking.getLeaderboard(toRank, isAscending); // TODO: add dynamic ascending argument
+        if (ranking.isEmpty()) {
+            sender.sendMessage(GenerateErrorMessage.generateError("One of two things have happened!\n1. No player has generated one of the required stats.\n2. One of the custom stats failed to compile (typo in custom stat, similar error as 1., or even infinite recursion)\nPlease check for typos or just play some more Minecraft :D"));
+            return true;
+        }
+        if (queries.size() == 1) {
+            sender.sendMessage(GenerateLeaderboardMessage.generateLeaderboard(ranking, queries.get(0), playerUUID, topX));
         } else {
-            String instruction = String.join(" ", args);
-            List<String> queries = QueryParser.obtainStatsFromInstruction(instruction).stream().distinct().toList();
-            if (queries.isEmpty()) {
-                sender.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "You aren't using any dynamic stats - this is just the same for everyone :/");
-            }
-            HashMap<String, List<Integer>> hash = QueryParser.calculateStatsToReplace(instruction);
-            HashMap<String, String> out = QueryParser.replaceCalculatedStats(hash, instruction);
-            HashMap<String, Double> toRank = new HashMap<>();
-            for (Map.Entry<String, String> item: out.entrySet()) {
-                toRank.put(item.getKey(), QueryParser.doTheMath(item.getValue()));
-            }
-            LinkedHashMap<String, Double> ranking = GetRanking.getLeaderboard(toRank, false); // TODO: add dynamic ascending argument
-            if (ranking.isEmpty()) {
-                sender.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "No player has generated that stat yet! Please check for typos or just play some more Minecraft :D");
-                return true;
-            }
-            if (queries.size() == 1) {
-                sender.sendMessage(GenerateLeaderboardMessage.generateLeaderboard(ranking, queries.get(0), playerUUID));
-            } else {
-                sender.sendMessage(GenerateLeaderboardMessage.generateLeaderboard(ranking, "combination of " + queries.size() + " queries", playerUUID));
-            }
+            sender.sendMessage(GenerateLeaderboardMessage.generateLeaderboard(ranking, "combination of " + queries.size() + " queries", playerUUID, topX));
         }
         return true;
     }

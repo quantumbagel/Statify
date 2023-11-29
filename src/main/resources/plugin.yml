@@ -2,18 +2,15 @@ name: Statify
 version: 1.0
 main: dev.quantumbagel.statify.Statify
 api-version: '1.20'
-description: Statify - a Discord-integrated, leaderboard / quest based *game* or competition to have with your friends :D
+description: Statify - Minecraft Stats Done Right
 commands:
   leaderboard:
-    description: test command
-    usage: /leaderboard <stat category>:<stat subcategory>
-    permission: main.*
+    description: View leaderboards across the entire server.
+    usage: /leaderboard [number of top entries]=10 <complex expression>
     aliases: lb
   stat:
-    description: test command
-    usage: /stat
-    permission: main.*
-permissions:
-  main.*:
-    description: Everyone can use this plugin lol
-    default: true
+    description: View individual player rankings
+    usage: /stat [username]=<player who is sending> <category> [number of top entries]=10
+  custom:
+    description: Create, view, and delete custom stats
+    usage: /custom set/list/get/delete

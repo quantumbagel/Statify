@@ -3,6 +3,7 @@ package dev.quantumbagel.statify;
 import org.bukkit.ChatColor;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -16,7 +17,7 @@ public class VerifyUsername {
                 Map.Entry<String, String> validEntry : uToU.entrySet()) {
             if (validEntry.getValue().equalsIgnoreCase(username)) {
                 isValidUsername = true;
-                legitUsername = validEntry.getKey();
+                legitUsername = validEntry.getValue();
                 break;
             }
         }

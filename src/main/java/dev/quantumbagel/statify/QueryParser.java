@@ -1,6 +1,8 @@
 package dev.quantumbagel.statify;
 
 
+import org.checkerframework.checker.units.qual.A;
+
 import java.util.*;
 public class QueryParser {
     static final String validChars = "abcdefghijklmnopqrstuvwyxz:_";
@@ -32,6 +34,9 @@ public class QueryParser {
     public static List<String> obtainStatsFromInstruction(String instruction) {
         StringBuilder currentParse = new StringBuilder();
         List<String> requiredStats = new ArrayList<>();
+        if (instruction == null) {
+            return new ArrayList<>();
+        }
         for (Character character: instruction.toCharArray()) {
             if (validChars.contains(character.toString().toLowerCase())) {
                 currentParse.append(character);
@@ -53,38 +58,61 @@ public class QueryParser {
     public static HashMap<String, List<Integer>> calculateStatsToReplace(String instruction) {
 
         int currentCounter = 0;
+        if (instruction == null) {
+            return new HashMap<>();
+        }
         List<String> requiredStats = obtainStatsFromInstruction(instruction);
         HashMap<String, List<Integer>> johnWick = new HashMap<>();
+        HashMap<String, String> uToU = UserCacheReader.getUUIDtoUsernameDict();
+        List<String> usernames = new ArrayList<>();
+        List<String> legitUsernames = new ArrayList<>();
+        for (Map.Entry<String, String> thing: uToU.entrySet()) {
+            usernames.add(thing.getValue().toLowerCase());
+            legitUsernames.add(thing.getValue());
+        }
         for (String item: requiredStats) {
             String[] splitItem = item.split(":", -1);
-//            String outer = splitItem[0].split("\\(", -1)[1];
-//            outer = item.split("\\)", -1)[1];
-//            String inner = splitItem[1].split("\\(", -1)[0];
-//            inner = item.split("\\)", -1)[0];
-            LinkedHashMap<String, Integer> ranking = GetRanking.getRanking(splitItem[0], splitItem[1], true);
+            LinkedHashMap<String, Integer> ranking;
+            if (usernames.contains(splitItem[0].toLowerCase())) {
+                HashMap<String, String> hash = CustomFavorites.getAll(legitUsernames.get(usernames.indexOf(splitItem[0].toLowerCase())));
+                String toParse = hash.get(splitItem[1]);
+                HashMap<String, List<Integer>> iAm;
+                try {
+                    iAm = calculateStatsToReplace(toParse);
+                } catch (StackOverflowError ignored) {
+                    return new HashMap<>();
+                }
+                HashMap<String, String> doneWithCalc = replaceCalculatedStats(iAm, toParse);
+                ranking = new LinkedHashMap<>();
+                for (Map.Entry<String, String> entry: doneWithCalc.entrySet()) {
+                    Integer mathNum = (int) doTheMath(entry.getValue().replace("\"", ""));
+                    ranking.put(entry.getKey(), mathNum);
+                }
+            } else {
+                ranking = GetRanking.getRanking(splitItem[0], splitItem[1], true);
+            }
             if (ranking.isEmpty()) {
                 return new HashMap<>(); // there is NO SHOT of this working for ANY player, so just return now
-        }
-        for (Map.Entry<String, Integer> entry: ranking.entrySet()) {
-            if (!johnWick.containsKey(entry.getKey())) {
-                johnWick.put(entry.getKey(), new ArrayList<>(){});
-                for (int i = 0; i < currentCounter; i++) {
-                    johnWick.get(entry.getKey()).add(null);
-                }
-                johnWick.get(entry.getKey()).add(entry.getValue());
-            } else {
-                johnWick.get(entry.getKey()).add(entry.getValue());
             }
-        }
-        for (Map.Entry<String, List<Integer>> thing: johnWick.entrySet()) {
-            if (thing.getValue().size() < currentCounter + 1) {
-                for (int i = 0; i < (currentCounter + 1 - thing.getValue().size()); i++) {
-                    johnWick.get(thing.getKey()).add(null);
+            for (Map.Entry<String, Integer> entry: ranking.entrySet()) {
+                if (!johnWick.containsKey(entry.getKey())) {
+                    johnWick.put(entry.getKey(), new ArrayList<>(){});
+                    for (int i = 0; i < currentCounter; i++) {
+                        johnWick.get(entry.getKey()).add(null);
+                    }
+                    johnWick.get(entry.getKey()).add(entry.getValue());
+                } else {
+                    johnWick.get(entry.getKey()).add(entry.getValue());
                 }
             }
-        }
-        currentCounter++;
-
+            for (Map.Entry<String, List<Integer>> thing: johnWick.entrySet()) {
+                if (thing.getValue().size() < currentCounter + 1) {
+                    for (int i = 0; i < (currentCounter + 1 - thing.getValue().size()); i++) {
+                        johnWick.get(thing.getKey()).add(null);
+                    }
+                }
+            }
+            currentCounter++;
         }
         return johnWick;
     }
