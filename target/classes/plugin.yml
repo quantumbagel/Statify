@@ -1,0 +1,16 @@
+name: Statify
+version: 1.0
+main: dev.quantumbagel.statify.Statify
+api-version: '1.20'
+description: Statify - Minecraft Stats Done Right
+commands:
+  leaderboard:
+    description: View leaderboards across the entire server.
+    usage: /leaderboard [number of top entries]=10 <complex expression>
+    aliases: lb
+  stat:
+    description: View individual player rankings
+    usage: /stat [username]=<player who is sending> <category> [number of top entries]=10
+  custom:
+    description: Create, view, and delete custom stats
+    usage: /custom set/list/get/delete
