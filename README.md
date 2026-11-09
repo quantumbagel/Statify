@@ -1,143 +1,84 @@
-# Statify - Simple Minecraft Stats Done Right
+# Statify
 
-Hi! I'm @quantumbagel, and this is my first plugin - Statify. It's a tiny (<50kb), resource-efficient, and powerful serverside plugin to get stats for one player - or the entire server.
+[![CI](https://github.com/quantumbagel/Statify/actions/workflows/ci.yml/badge.svg)](https://github.com/quantumbagel/Statify/actions/workflows/ci.yml)
 
-### Why do I need this?
+Server-wide leaderboards for Minecraft's built-in statistics, with a small query language for combining them.
 
-If you want a way to aggregate stats throughout the server (not just through the Statistics menu for one player - this plugin allows easy visualization of stats.
+```
+/leaderboard killed:zombie + killed:skeleton
+/leaderboard 5 mined:diamond_ore / (custom:play_time / 72000)
+/custom set kdr killed:total / custom:deaths
+/leaderboard quantumbagel:kdr
+```
 
+Statify reads the stat files Minecraft already writes, so it works on existing worlds with no tracking setup. It runs on Spigot and Paper 1.21 with Java 21.
 
-### Pros/Cons
+## Commands
 
-Here's a list of pros and cons of this plugin (this isn't a *perfect* plugin)
+| Command | What it does |
+| --- | --- |
+| `/leaderboard [count] <query>` (alias `/lb`) | Ranks every player by a query. Shows 10 rows by default and up to 50. If you are below the cutoff, your own row is shown too. |
+| `/stat [player] <category> [count]` | One player's top stats in a category, such as `/stat mined` for your most-mined blocks. |
+| `/stat [player] <owner> [count]` | One player's result for each of `owner`'s saved custom queries. |
+| `/custom set <name> <query>` | Saves a query as `yourname:name` so it can be used in other queries. |
+| `/custom list [player]` | Lists saved queries. |
+| `/custom get [player] <name>` | Shows one saved query. |
+| `/custom delete <name>` | Deletes one of your queries and warns about any queries that used it. |
 
-#### Pros
+Every command has tab completion for categories, stat names, players and saved queries.
 
-* Complex queries allowed (`killed:zombie+killed:skeleton`, `(killed:zombie+killed:skeleton)^custom:beds_broken`, or even `tan(killed:zombie) + killed:skeleton`)
-* Ranking of individual categories for a certain player
-* Ability to create and save complex queries under a shorthand
-* Yes, there *is* a recursion detector
+Permissions: `statify.leaderboard`, `statify.stat` and `statify.custom`, all granted to everyone by default.
 
-#### Cons
-* No autocomplete, you have to know the general layout of MC stats (for an excellent guide, check https://minecraft.fandom.com/wiki/Statistics)
-* My first plugin, so there are probably copious quantities of bugs and glitches
-* Doesn't work well with offline-mode (cracked Minecraft) because of the possibility of duplicate usernames
-* No multithreading
-* No custom command sanity checks
-* Bugginess with really big numbers >:(
-This is a *Bukkit* plugin, so put the .jar in the `plugins` folder of your Spigot/Bukkit/CraftBukkit server. 
+## Query language
 
+A query is arithmetic over stats.
 
-### How do I even use these commands?
-*NB: [description] is NOT REQUIRED, equals sign after is DEFAULT VALUE, <description> IS REQUIRED*
-### /leaderboard, /lb
+- **Stats** are written `category:stat`, using Minecraft's names without the `minecraft:` prefix, such as `killed:zombie`, `mined:stone` or `custom:play_time`. The categories are `custom`, `mined`, `crafted`, `used`, `broken`, `picked_up`, `dropped`, `killed` and `killed_by`. `category:total` sums a whole category. A stat a player has never recorded counts as 0.
+- **Saved queries** are written `owner:name`, such as `quantumbagel:kdr`, and can use other saved queries.
+- **Operators**: `+ - * / ^` and parentheses. `^` is right-associative and binds tighter than unary minus, so `-2^2` is `-4`.
+- **Functions**: `sqrt`, `abs`, `ln`, `log` (base 10), `floor`, `ceil`, `round`, and `sin`, `cos`, `tan` in degrees.
 
+Leaderboards rank highest first, except a query on a single `killed_by` stat, which ranks lowest first. Players with none of a query's stats are left off. So are players whose result is undefined, such as dividing by a stat that is 0.
 
-#### Format:
+## How it works
 
+```
+query text ──Lexer──▶ tokens ──Parser──▶ syntax tree ──Query.compile──▶ expanded tree ──Evaluator──▶ value per player
+                                                         │                               ▲
+                                              CustomQueryStore                      StatTable
+                                              (saved queries)              (stats/<uuid>.json, as long)
+```
 
-`/leaderboard [number of top entries]=10 <complex expression>`
+- **Parsing** (`query/`): a hand-written lexer and recursive-descent parser build an immutable syntax tree from sealed-interface records. The evaluator is a single pattern-matching `switch`. Errors carry the position where parsing failed, and the commands underline from that position on.
+- **Custom queries** (`Query.compile`): saved queries are expanded inline before evaluation, so evaluating a query reads only plain stats. Expansion tracks the chain of queries being expanded, so a loop is reported as `a:x -> a:y -> a:x`. `/custom set` runs the same check against the new definition before saving.
+- **Stats** (`stats/StatTable`): every stat file is loaded into memory with `long` values, and the table is reused for 30 seconds. Before reloading, Statify asks the server to save online players so their latest stats are on disk.
+- **Ranking** (`rank/`): standard competition ranking (1, 2, =2, 4), generic over the key type so the same code ranks players and stat names.
+- **Storage** (`stats/CustomQueryStore`): saved queries stay in memory and are written to `plugins/Statify/custom-queries.json` with an atomic replace on every change. If the file is corrupt, the plugin disables itself instead of overwriting it.
 
+The parser, query expansion, stat loading, storage and ranking have no Bukkit dependency and are covered by JUnit tests.
 
-#### Examples:
+## Building
 
+```sh
+./mvnw verify
+```
 
-`/lb killed:zombie` (A simple request for the top 10 player zombie kills)
+The plugin jar is written to `target/Statify-<version>.jar`. CI builds and tests every push.
 
+## History
 
-`/lb 5 killed:zombie` (A request for the top 5 player zombie kills)
+Statify started in November 2023 as my first plugin. Version 2.0 (November 2026) reworks it:
 
+- replaced the borrowed string evaluator with a lexer, parser and syntax tree
+- detects custom-query loops properly instead of catching `StackOverflowError`
+- uses `long` stat values, fixing overflow and values clamped at 2,147,483,647
+- fixes leaderboard bugs: "top 10" showed 9 rows, and 21st showed as 21th
+- new custom queries work without a restart, and the save file works on Linux
+- adds tab completion, argument checks, and tests
 
+Queries saved by 1.0 in `statify.json` are imported automatically on first start.
 
+## Known limitations
 
-`/lb killed:total` (A request for the player with the highest sum of the "killed" category (most entity kills))
-
-
-`/lb APlayerOfMinecraft:kd` (APlayerOfMinecraft is username, kd is custom command that user defined (in this case kill differential))
-
-
-`/lb killed:zombie + APlayerOfMinecraft:kd` (You can use both in conjunction using these stats as numbers)
-
-
-`/lb killed:zombie * APlayerOfMinecraft:kd + custom:walk_one_cm`
-
-### /stat
-#### Format:
-
-
-`/stat [username]=<player who is sending> <category> [number of top entries]=10`
-
-
-#### Examples
-
-
-`/stat killed` (returns top 10 ranking of the "killed" category for the player who sent the message)
-
-
-`/stat killed 5` (returns top 10 ranking of the "killed" category for the player who sent the message)
-
-
-`/stat APlayerOfMinecraft killed` (returns top 10 ranking of the "killed" category of the player "APlayerOfMinecraft")
-
-
-`/stat APlayerOfMinecraft killed 5` (returns top 5 ranking of the "killed" category of the player "APlayerOfMinecraft")
-
-
-### /custom
-
-
-#### Format:
-
-
-`/custom set <command name> <complex expression>`
-
-
-`/custom list [username]=<player who is sending>`
-
-
-`/custom get [username]=<player who is sending> <command name>`
-
-
-`/custom delete <command name>`
-
-
-#### Examples
-
-
-`/custom set kd killed:total-killed_by:total` (Set the player who is sending's custom command "kd" to "killed:total-killed_by:total". If the player's name was "APlayerOfMinecraft," this could be referenced the exact same way as the `/leaderboard` examples above.)
-
-
-`/custom list` (List the current player's defined commands)
-
-
-`/custom list APlayerOfMinecraft` (List the player "APlayerOfMinecraft"'s defined stats)
-
-
-`/custom get kd` (Print the current definition of the custom stat `kd` for the current player)
-
-
-`/custom get APlayerOfMinecraft kd` (Print the current definition of the custom stat `kd` for the player "APlayerOfMinecraft")
-
-
-`/custom delete kd` (Delete the command `kd` for the current player, if defined)
-
-
-### /playerrank
-
-
-#### Format
-
-
-`/playerrank [number of top entries]=10`
-
-
-#### Examples
-
-
-`/playerrank` (List the top 10 players on the server using the PlayerScore algorithm that I made up on the spot)
-
-
-`/playerrank 5` (List the top 5 players on the server)
-
-
-That's all - I hope you enjoy this little plugin!
+- Saved queries belong to a username, so they don't follow a player who renames.
+- Stat files are read on the main server thread. This is fine at small-server scale, but a server with thousands of players would want an asynchronous load.
