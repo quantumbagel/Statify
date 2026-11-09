@@ -1,7 +1,7 @@
 name: Statify
-version: 1.0
+version: '${project.version}'
 main: dev.quantumbagel.statify.Statify
-api-version: '1.20'
+api-version: '1.21'
 description: Statify - Minecraft Stats Done Right
 commands:
   leaderboard:
