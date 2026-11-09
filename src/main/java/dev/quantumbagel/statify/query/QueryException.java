@@ -2,6 +2,8 @@ package dev.quantumbagel.statify.query;
 
 /** A query that cannot be parsed or expanded. The message is safe to show to players. */
 public class QueryException extends Exception {
+    private static final long serialVersionUID = 1L;
+
     private final int position;
 
     public QueryException(String message) {

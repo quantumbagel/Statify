@@ -52,7 +52,7 @@
                 <version>3.13.0</version>
                 <configuration>
                     <compilerArgs>
-                        <arg>-Xlint:all</arg>
+                        <arg>-Xlint:all,-classfile</arg>
                     </compilerArgs>
                 </configuration>
             </plugin>

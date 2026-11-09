@@ -99,6 +99,22 @@ public final class Query {
         }
     }
 
+    /**
+     * The {@code left:right} names a query refers to directly, without expanding custom queries.
+     * Empty if the query does not parse.
+     */
+    public static Set<String> directReferences(String source) {
+        Set<Expr.Ref> refs = new LinkedHashSet<>();
+        try {
+            collectRefs(Parser.parse(source), refs);
+        } catch (QueryException e) {
+            return Set.of();
+        }
+        Set<String> names = new LinkedHashSet<>();
+        refs.forEach(ref -> names.add(ref.toString()));
+        return names;
+    }
+
     private static void collectRefs(Expr expr, Set<Expr.Ref> out) {
         switch (expr) {
             case Expr.Num ignored -> {

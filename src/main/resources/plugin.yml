@@ -2,15 +2,26 @@ name: Statify
 version: '${project.version}'
 main: dev.quantumbagel.statify.Statify
 api-version: '1.21'
-description: Statify - Minecraft Stats Done Right
+description: Leaderboards and custom stat queries built on Minecraft's own statistics
+author: quantumbagel
 commands:
   leaderboard:
-    description: View leaderboards across the entire server.
-    usage: /leaderboard [number of top entries]=10 <complex expression>
-    aliases: lb
+    description: Rank every player by a stat or a query
+    usage: /<command> [count] <query>, e.g. /<command> 5 killed:zombie + killed:skeleton
+    aliases: [lb]
+    permission: statify.leaderboard
   stat:
-    description: View individual player rankings
-    usage: /stat [username]=<player who is sending> <category> [number of top entries]=10
+    description: A player's top stats in a category, or their results for someone's custom queries
+    usage: /<command> [player] <category|query owner> [count]
+    permission: statify.stat
   custom:
-    description: Create, view, and delete custom stats
-    usage: /custom set/list/get/delete
+    description: Save, view and delete custom queries
+    usage: /<command> list [player] | get [player] <name> | set <name> <query> | delete <name>
+    permission: statify.custom
+permissions:
+  statify.leaderboard:
+    default: true
+  statify.stat:
+    default: true
+  statify.custom:
+    default: true
